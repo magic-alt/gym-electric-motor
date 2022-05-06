@@ -3,6 +3,7 @@ import setuptools
 
 AUTHORS = [
     'Arne Traue', 'Gerrit Book', 'Praneeth Balakrishna',
+    'Pascal Peters', 'Pramod Manjunatha', 'Darius Jakobeit', 'Felix Book', 
     'Max Schenke', 'Wilhelm Kirchgässner', 'Oliver Wallscheid',
 ]
 
@@ -14,12 +15,15 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
       name='gym_electric_motor',
-      version='0.2.1',
+      version='1.0.1',
       description='An OpenAI gym environment for electric motor control.',
       packages=setuptools.find_packages(),
       install_requires=requirements,
-      extras_require={'examples': 
-                      ['keras_rl2>=1.0.3']
+      python_requires='>=3.6',
+      extras_require={'examples': [
+                        'keras-rl2',
+                        'stable-baselines3',
+                        'gekko']
                      },
       author=', '.join(sorted(AUTHORS, key=lambda n: n.split()[-1].lower())),
       long_description=long_description,

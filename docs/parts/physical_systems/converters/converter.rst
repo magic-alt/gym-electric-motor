@@ -10,6 +10,7 @@ Power Electronic Converters
     4QC
     B6C
     DoubleConv
+    NoConv
 
 The converters are divided into two classes: The discretely controlled and continuously controlled converters.
 The PowerElectronicConverter class is the base class for all converters. From that, the DiscreteConverter and the
@@ -22,16 +23,16 @@ Converter Base Class
 .. autoclass:: gym_electric_motor.physical_systems.converters.PowerElectronicConverter
    :members:
 
-Discrete Converter
+Finite Control Set Converter
 '''''''''''''''''''''''''''''''
 
-.. autoclass:: gym_electric_motor.physical_systems.converters.DiscConverter
+.. autoclass:: gym_electric_motor.physical_systems.converters.FiniteConverter
    :members:
    :inherited-members:
 
 
-Continuous Dynamically Averaged Converter
-'''''''''''''''''''''''''''''''''''''''''
+Continuous Control Set Dynamically Averaged Converter
+'''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 .. autoclass:: gym_electric_motor.physical_systems.converters.ContDynamicallyAveragedConverter
    :members:

@@ -19,7 +19,7 @@ class SinusoidalReferenceGenerator(SubepisodedReferenceGenerator):
             amplitude_range(tuple(float,float)): Lower and upper limit for the amplitude.
             frequency_range(tuple(float,float)): Lower and upper limit for the frequency.
             offset_range(tuple(float,float)): Lower and upper limit for the offset
-            kwargs(dict): Arguments passed to the superclass SubepisodedReferenceGenerator .
+            kwargs(any): Arguments passed to the superclass SubepisodedReferenceGenerator .
         """
         super().__init__(**kwargs)
         self._amplitude_range = amplitude_range or (0, np.inf)
@@ -41,6 +41,6 @@ class SinusoidalReferenceGenerator(SubepisodedReferenceGenerator):
         )
         self._offset = self._get_current_value(offset_range)
         t = np.linspace(0, (self._current_episode_length - 1) * self._physical_system.tau, self._current_episode_length)
-        phase = np.random.rand() * 2 * np.pi
+        phase = self.random_generator.uniform() * 2 * np.pi
         self._reference = self._amplitude * np.sin(2 * np.pi * self._frequency * t + phase) + self._offset
         self._reference = np.clip(self._reference, self._limit_margin[0], self._limit_margin[1])

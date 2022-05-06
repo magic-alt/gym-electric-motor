@@ -7,7 +7,7 @@ from ..utils import instantiate
 class PowerElectronicConverter:
     """
     Base class for all converters in a SCMLSystem.
-
+ 
     Properties:
         | *voltages(tuple(float, float))*: Determines which output voltage polarities the converter can generate.
         | E.g. (0, 1) - Only positive voltages / (-1, 1) Positive and negative voltages
@@ -25,7 +25,7 @@ class PowerElectronicConverter:
     #: Default action that is taken after a reset.
     _reset_action = None
 
-    def __init__(self, tau, dead_time=False, interlocking_time=0.0, **__):
+    def __init__(self, tau, dead_time=False, interlocking_time=0.0):
         """
        :param tau: Discrete time step of the system in seconds
        :param dead_time: Flag, if a system dead_time of one cycle should be considered.
@@ -97,7 +97,7 @@ class PowerElectronicConverter:
         """
         raise NotImplementedError
 
-    def _set_switching_pattern(self, *_, **__):
+    def _set_switching_pattern(self):
         """
         Method to calculate the switching pattern and corresponding switching times for the next time step.
         At least, the next time step [t + tau] is returned.
@@ -108,6 +108,20 @@ class PowerElectronicConverter:
         self._switching_pattern = [self._current_action]
         return [self._action_start_time + self._tau]
 
+
+class NoConverter(PowerElectronicConverter):
+    """Dummy Converter class used to directly transfer the supply voltage to the motor"""
+    # Dummy default values for voltages and currents.
+    # No real use other than to fit the current physical system architecture
+    voltages = Box(0, 1, shape=(3,), dtype=np.float64)
+    currents = Box(0, 1, shape=(3,), dtype=np.float64)
+    action_space = Box(low=np.array([]), high=np.array([]), dtype=np.float64)
+
+    def i_sup(self, i_out):
+        return i_out[0]
+
+    def convert(self, i_out, t):
+        return [1]
 
 class ContDynamicallyAveragedConverter(PowerElectronicConverter):
     """
@@ -158,9 +172,9 @@ class ContDynamicallyAveragedConverter(PowerElectronicConverter):
         return np.sign(i_in[0]) / self._tau * self._interlocking_time
 
 
-class DiscConverter(PowerElectronicConverter):
+class FiniteConverter(PowerElectronicConverter):
     """
-    Base class for all discrete converters.
+    Base class for all finite converters.
     """
 
     #: The switching states of the converter for the current action
@@ -174,6 +188,11 @@ class DiscConverter(PowerElectronicConverter):
         # Docstring in base class
         super().__init__(tau=tau, **kwargs)
 
+    def set_action(self, action, t):
+        assert self.action_space.contains(action), \
+            f"The selected action {action} is not a valid element of the action space {self.action_space}."
+        return super().set_action(action, t)
+
     def convert(self, i_out, t):
         # Docstring in base class
         raise NotImplementedError
@@ -183,10 +202,10 @@ class DiscConverter(PowerElectronicConverter):
         raise NotImplementedError
 
 
-class DiscOneQuadrantConverter(DiscConverter):
+class FiniteOneQuadrantConverter(FiniteConverter):
     """
     Key:
-        'Disc-1QC'
+        'Finite-1QC'
 
     Switching States / Actions:
         | 0: Transistor off.
@@ -200,8 +219,8 @@ class DiscOneQuadrantConverter(DiscConverter):
         | currents: Box(0, 1, shape=(1,))
     """
 
-    voltages = Box(0, 1, shape=(1,))
-    currents = Box(0, 1, shape=(1,))
+    voltages = Box(0, 1, shape=(1,), dtype=np.float64)
+    currents = Box(0, 1, shape=(1,), dtype=np.float64)
     action_space = Discrete(2)
 
     def convert(self, i_out, t):
@@ -213,10 +232,10 @@ class DiscOneQuadrantConverter(DiscConverter):
         return i_out[0] if self._current_action == 1 else 0
 
 
-class DiscTwoQuadrantConverter(DiscConverter):
+class FiniteTwoQuadrantConverter(FiniteConverter):
     """
     Key:
-        'Disc-2QC'
+        'Finite-2QC'
 
     Switching States / Actions:
         | 0: Both Transistors off.
@@ -231,8 +250,8 @@ class DiscTwoQuadrantConverter(DiscConverter):
         | currents: Box(-1, 1, shape=(1,))
     """
 
-    voltages = Box(0, 1, shape=(1,))
-    currents = Box(-1, 1, shape=(1,))
+    voltages = Box(0, 1, shape=(1,), dtype=np.float64)
+    currents = Box(-1, 1, shape=(1,), dtype=np.float64)
     action_space = Discrete(3)
 
     def convert(self, i_out, t):
@@ -265,7 +284,7 @@ class DiscTwoQuadrantConverter(DiscConverter):
         else:
             raise Exception('Invalid switching state of the converter')
 
-    def _set_switching_pattern(self, *_, **__):
+    def _set_switching_pattern(self):
         # Docstring in base class
         if (
                 self._current_action == 0
@@ -280,10 +299,10 @@ class DiscTwoQuadrantConverter(DiscConverter):
             return [self._action_start_time + self._interlocking_time, self._action_start_time + self._tau]
 
 
-class DiscFourQuadrantConverter(DiscConverter):
+class FiniteFourQuadrantConverter(FiniteConverter):
     """
     Key:
-        'Disc-4QC'
+        'Finite-4QC'
 
     Switching States / Actions:
         | 0: T2, T4 on.
@@ -298,14 +317,14 @@ class DiscFourQuadrantConverter(DiscConverter):
         | Box(-1, 1, shape=(1,))
         | Box(-1, 1, shape=(1,))
     """
-    voltages = Box(-1, 1, shape=(1,))
-    currents = Box(-1, 1, shape=(1,))
+    voltages = Box(-1, 1, shape=(1,), dtype=np.float64)
+    currents = Box(-1, 1, shape=(1,), dtype=np.float64)
     action_space = Discrete(4)
 
     def __init__(self, **kwargs):
         # Docstring in base class
         super().__init__(**kwargs)
-        self._subconverters = [DiscTwoQuadrantConverter(**kwargs), DiscTwoQuadrantConverter(**kwargs)]
+        self._subconverters = [FiniteTwoQuadrantConverter(**kwargs), FiniteTwoQuadrantConverter(**kwargs)]
 
     def reset(self):
         # Docstring in base class
@@ -319,6 +338,8 @@ class DiscFourQuadrantConverter(DiscConverter):
 
     def set_action(self, action, t):
         # Docstring in base class
+        assert self.action_space.contains(action), \
+            f"The selected action {action} is not a valid element of the action space {self.action_space}."
         times = []
         action0 = [1, 1, 2, 2][action]
         action1 = [1, 2, 1, 2][action]
@@ -346,9 +367,9 @@ class ContOneQuadrantConverter(ContDynamicallyAveragedConverter):
         | voltages: Box(0, 1, shape=(1,))
         | currents: Box(0, 1, shape=(1,))
     """
-    voltages = Box(0, 1, shape=(1,))
-    currents = Box(0, 1, shape=(1,))
-    action_space = Box(0, 1, shape=(1,))
+    voltages = Box(0, 1, shape=(1,), dtype=np.float64)
+    currents = Box(0, 1, shape=(1,), dtype=np.float64)
+    action_space = Box(0, 1, shape=(1,), dtype=np.float64)
 
     def _convert(self, i_in, *_):
         # Docstring in base class
@@ -379,9 +400,9 @@ class ContTwoQuadrantConverter(ContDynamicallyAveragedConverter):
         | voltages: Box(0, 1, shape=(1,))
         | currents: Box(-1, 1, shape=(1,))
     """
-    voltages = Box(0, 1, shape=(1,))
-    currents = Box(-1, 1, shape=(1,))
-    action_space = Box(0, 1, shape=(1,))
+    voltages = Box(0, 1, shape=(1,), dtype=np.float64)
+    currents = Box(-1, 1, shape=(1,), dtype=np.float64)
+    action_space = Box(0, 1, shape=(1,), dtype=np.float64)
 
 
     def _convert(self, *_):
@@ -417,9 +438,9 @@ class ContFourQuadrantConverter(ContDynamicallyAveragedConverter):
         | voltages: Box(-1, 1, shape=(1,))
         | currents: Box(-1, 1, shape=(1,))
     """
-    voltages = Box(-1, 1, shape=(1,))
-    currents = Box(-1, 1, shape=(1,))
-    action_space = Box(-1, 1, shape=(1,))
+    voltages = Box(-1, 1, shape=(1,), dtype=np.float64)
+    currents = Box(-1, 1, shape=(1,), dtype=np.float64)
+    action_space = Box(-1, 1, shape=(1,), dtype=np.float64)
 
     def __init__(self, **kwargs):
         # Docstring in base class
@@ -453,13 +474,13 @@ class ContFourQuadrantConverter(ContDynamicallyAveragedConverter):
         return self._subconverters[0].i_sup(i_out) + self._subconverters[1].i_sup([-i_out[0]])
 
 
-class DiscMultiConverter(DiscConverter):
+class FiniteMultiConverter(FiniteConverter):
     """
-    Converter that allows to include an arbitrary number of independent discrete subconverters.
+    Converter that allows to include an arbitrary number of independent finite subconverters.
     Subconverters must be 'elementary' and can not be MultiConverters.
 
     Key:
-        'Disc-Multi'
+        'Finite-Multi'
 
     Actions:
         Concatenation of the subconverters' action spaces
@@ -472,6 +493,10 @@ class DiscMultiConverter(DiscConverter):
             [subconverter[0].voltages.high, subconverter[1].voltages.high, ...])
     """
 
+    @property
+    def subconverters(self):
+        return self._subconverters
+
     def __init__(self, subconverters, **kwargs):
         """
         Args:
@@ -479,8 +504,9 @@ class DiscMultiConverter(DiscConverter):
             kwargs(dict): Parameters to pass to the Subconverters and the superclass
         """
         super().__init__(**kwargs)
-        self._subconverters = [instantiate(PowerElectronicConverter, subconverter, **kwargs) for subconverter in subconverters]
-
+        self._subconverters = [
+            instantiate(PowerElectronicConverter, subconverter, **kwargs) for subconverter in subconverters
+        ]
         self.subsignal_current_space_dims = []
         self.subsignal_voltage_space_dims = []
         self.action_space = []
@@ -514,8 +540,8 @@ class DiscMultiConverter(DiscConverter):
 
         # put limits into gym_space format
         self.action_space = MultiDiscrete(self.action_space)
-        self.currents = Box(currents_low, currents_high)
-        self.voltages = Box(voltages_low, voltages_high)
+        self.currents = Box(currents_low, currents_high, dtype=np.float64)
+        self.voltages = Box(voltages_low, voltages_high, dtype=np.float64)
 
     def convert(self, i_out, t):
         # Docstring in base class
@@ -618,9 +644,9 @@ class ContMultiConverter(ContDynamicallyAveragedConverter):
         voltages_high = np.concatenate(voltages_high)
 
         # put limits into gym_space format
-        self.action_space = Box(action_space_low, action_space_high)
-        self.currents = Box(currents_low, currents_high)
-        self.voltages = Box(voltages_low, voltages_high)
+        self.action_space = Box(action_space_low, action_space_high, dtype=np.float64)
+        self.currents = Box(currents_low, currents_high, dtype=np.float64)
+        self.voltages = Box(voltages_low, voltages_high, dtype=np.float64)
 
     def set_action(self, action, t):
         # Docstring in base class
@@ -665,12 +691,12 @@ class ContMultiConverter(ContDynamicallyAveragedConverter):
         return i_sup
 
 
-class DiscB6BridgeConverter(DiscConverter):
+class FiniteB6BridgeConverter(FiniteConverter):
     """
-    The discrete B6 bridge converters (B6C) is simulated with three discrete 2QC.
+    The finite B6 bridge converters (B6C) is simulated with three finite 2QC.
 
     Key:
-        'Disc-B6C'
+        'Finite-B6C'
 
     Actions:
         +-+-----+-----+-----+
@@ -706,9 +732,9 @@ class DiscB6BridgeConverter(DiscConverter):
 
     action_space = Discrete(8)
     # Only positive voltages can be applied
-    voltages = Box(-1, 1, shape=(3,))
+    voltages = Box(-1, 1, shape=(3,), dtype=np.float64)
     # positive and negative currents are possible
-    currents = Box(-1, 1, shape=(3,))
+    currents = Box(-1, 1, shape=(3,), dtype=np.float64)
     _reset_action = 0
     _subactions = [
         [2, 2, 2],
@@ -725,9 +751,9 @@ class DiscB6BridgeConverter(DiscConverter):
         # Docstring in base class
         super().__init__(tau=tau, **kwargs)
         self._subconverters = [
-            DiscTwoQuadrantConverter(tau=tau, **kwargs),
-            DiscTwoQuadrantConverter(tau=tau, **kwargs),
-            DiscTwoQuadrantConverter(tau=tau, **kwargs),
+            FiniteTwoQuadrantConverter(tau=tau, **kwargs),
+            FiniteTwoQuadrantConverter(tau=tau, **kwargs),
+            FiniteTwoQuadrantConverter(tau=tau, **kwargs),
         ]
 
     def reset(self):
@@ -749,6 +775,8 @@ class DiscB6BridgeConverter(DiscConverter):
 
     def set_action(self, action, t):
         # Docstring in base class
+        assert self.action_space.contains(action), \
+            f"The selected action {action} is not a valid element of the action space {self.action_space}."
         subactions = self._subactions[action]
         times = []
         times += self._subconverters[0].set_action(subactions[0], t)
@@ -782,11 +810,11 @@ class ContB6BridgeConverter(ContDynamicallyAveragedConverter):
         Box(-0.5, 0.5, shape=(3,))
     """
 
-    action_space = Box(-1, 1, shape=(3,))
+    action_space = Box(-1, 1, shape=(3,), dtype=np.float64)
     # Only positive voltages can be applied
-    voltages = Box(-1, 1, shape=(3,))
+    voltages = Box(-1, 1, shape=(3,), dtype=np.float64)
     # Positive and negative currents are possible
-    currents = Box(-1, 1, shape=(3,))
+    currents = Box(-1, 1, shape=(3,), dtype=np.float64)
 
     _reset_action = [0, 0, 0]
 
