@@ -6,6 +6,8 @@ the applied voltage in three-phase abc-coordinates, and the measured current in 
 
 import numpy as np
 import gym_electric_motor as gem
+from gym_electric_motor.envs.motors import ActionType, ControlType, Motor, MotorType
+from gym_electric_motor.physical_systems.solvers import ScipyOdeSolver
 import matplotlib.pyplot as plt
 
 
@@ -25,33 +27,36 @@ def parameterize_three_phase_grid(amplitude, frequency, initial_phase):
         u_abc = [
             amplitude * np.sin(omega * t + phi_initial),
             amplitude * np.sin(omega * t + phi_initial - phi),
-            amplitude * np.sin(omega * t + phi_initial + phi)
-         ]
+            amplitude * np.sin(omega * t + phi_initial + phi),
+        ]
         return u_abc
+
     return grid_voltage
 
+motor = Motor(motor_type=MotorType.SquirrelCageInductionMotor, control_type=ControlType.CurrentControl, action_type=ActionType.Continuous)
 
 # Create the environment
 env = gem.make(
     # Choose the squirrel cage induction motor (SCIM) with continuous-control-set
-    "AbcCont-CC-SCIM-v0",
-
+    motor.env_id(),
+    #
+    load=gem.physical_systems.PolynomialStaticLoad(
+        dict(a=0.0, b=0.0, c=0.0, j_load=1e-6)
+    ),
     # Define the numerical solver for the simulation
-    ode_solver="scipy.ode",
-
+    ode_solver=ScipyOdeSolver(),
     # Define which state variables are to be monitored concerning limit violations
     # "()" means, that limit violation will not necessitate an env.reset()
     constraints=(),
-
     # Set the sampling time
-    tau=1e-5
+    tau=1e-5,
 )
 
 tau = env.physical_system.tau
 limits = env.physical_system.limits
 
 # reset the environment such that the simulation can be started
-(state, reference) = env.reset()
+(state, reference),_ = env.reset()
 
 # We define these arrays in order to save our simulation results in them
 # Initial state and initial time are directly inserted
@@ -59,9 +64,9 @@ STATE = np.transpose(np.array([state * limits]))
 TIME = np.array([0])
 
 # Use the previously defined function to parameterize a three-phase grid with an amplitude of
-# 80 % of the DC-link voltage and a frequency of 50 Hertz
+# 100 % of the DC-link voltage and a frequency of 50 Hertz
 f_grid = 50  # Hertz
-u_abc = parameterize_three_phase_grid(amplitude=0.8, frequency=f_grid, initial_phase=0)
+u_abc = parameterize_three_phase_grid(amplitude=1.0, frequency=f_grid, initial_phase=0)
 
 # Set a time horizon to simulate, in this case 60 ms
 time_horizon = 0.06
@@ -71,7 +76,7 @@ for idx in range(step_horizon):
     time = idx * tau
 
     # apply the voltage as given by the grid
-    (state, reference), reward, done, _ = env.step(u_abc(time))
+    (state, reference), reward, terminated, truncated, _ = env.step(u_abc(time))
 
     # save the results of this simulation step
     STATE = np.append(STATE, np.transpose([state * limits]), axis=1)
@@ -92,16 +97,20 @@ TIME *= 1e3
 # STATE[13]: u_sup (DC-link supply voltage)
 
 plt.subplots(2, 2, figsize=(7.45, 2.5))
-plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.08, hspace=0.05)
-plt.rcParams.update({'font.size': 8})
+plt.subplots_adjust(
+    left=None, bottom=None, right=None, top=None, wspace=0.08, hspace=0.05
+)
+plt.rcParams.update({"font.size": 8})
 
 plt.subplot(2, 2, 1)
 plt.plot(TIME, STATE[0])
 plt.ylabel(r"$\omega_\mathrm{me} \, / \, \frac{1}{\mathrm{s}}$")
-plt.xlim([0, 60])
+plt.xlim([TIME[0], TIME[-1]])
 plt.yticks([0, 50, 100, 150])
-plt.tick_params(axis='x', which='both', labelbottom=False)
-plt.tick_params(axis='both', direction="in", left=True, right=False, bottom=True, top=True)
+plt.tick_params(axis="x", which="both", labelbottom=False)
+plt.tick_params(
+    axis="both", direction="in", left=True, right=False, bottom=True, top=True
+)
 plt.grid()
 
 ax = plt.subplot(2, 2, 2)
@@ -109,12 +118,14 @@ plt.plot(TIME, STATE[7], label=r"$u_a$")
 plt.plot(TIME, STATE[8], label=r"$u_b$")
 plt.plot(TIME, STATE[9], label=r"$u_c$")
 plt.ylabel(r"$u \, / \, \mathrm{V}$")
-plt.xlim([0, 60])
+plt.xlim([TIME[0], TIME[-1]])
 plt.yticks([-200, 0, 200])
 ax.yaxis.set_label_position("right")
 ax.yaxis.tick_right()
-plt.tick_params(axis='x', which='both', labelbottom=False)
-plt.tick_params(axis='both', direction="in", left=False, right=True, bottom=True, top=True)
+plt.tick_params(axis="x", which="both", labelbottom=False)
+plt.tick_params(
+    axis="both", direction="in", left=False, right=True, bottom=True, top=True
+)
 plt.grid()
 plt.legend(loc="lower right", ncol=3)
 
@@ -122,9 +133,11 @@ plt.subplot(2, 2, 3)
 plt.plot(TIME, STATE[1])
 plt.xlabel(r"$t \, / \, \mathrm{ms}$")
 plt.ylabel(r"$T \, / \, \mathrm{Nm}$")
-plt.xlim([0, 60])
+plt.xlim([TIME[0], TIME[-1]])
 plt.yticks([0, 20])
-plt.tick_params(axis='both', direction="in", left=True, right=False, bottom=True, top=True)
+plt.tick_params(
+    axis="both", direction="in", left=True, right=False, bottom=True, top=True
+)
 plt.grid()
 
 ax = plt.subplot(2, 2, 4)
@@ -132,10 +145,12 @@ plt.plot(TIME, STATE[5], label=r"$i_d$")
 plt.plot(TIME, STATE[6], label=r"$i_q$")
 plt.xlabel(r"$t \, / \, \mathrm{ms}$")
 plt.ylabel(r"$i \, / \, \mathrm{A}$")
-plt.xlim([0, 60])
+plt.xlim([TIME[0], TIME[-1]])
 ax.yaxis.set_label_position("right")
 ax.yaxis.tick_right()
-plt.tick_params(axis='both', direction="in", left=False, right=True, bottom=True, top=True)
+plt.tick_params(
+    axis="both", direction="in", left=False, right=True, bottom=True, top=True
+)
 plt.yticks([0, 10, 20, 30])
 plt.grid()
 

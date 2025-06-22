@@ -4,6 +4,7 @@
 
 [**Overview paper**](https://joss.theoj.org/papers/10.21105/joss.02498)
 | [**Reinforcement learning paper**](https://arxiv.org/abs/1910.09434)
+| [**GEM control paper**](https://ieeexplore.ieee.org/document/10239044)
 | [**Quickstart**](#getting-started)
 | [**Install guide**](#installation)
 | [**Reference docs**](https://upb-lea.github.io/gym-electric-motor/)
@@ -18,14 +19,15 @@
 
 ## Overview
 The gym-electric-motor (GEM) package is a Python toolbox for the simulation and control of various electric motors.
-It is built upon [OpenAI Gym Environments](https://gym.openai.com/), and, therefore, can be used for both, classical control simulation and [reinforcement learning](https://github.com/upb-lea/reinforcement_learning_course_materials) experiments. It allows you to construct a typical drive train with the usual building blocks, i.e., supply voltages, converters, electric motors and load models, and obtain not only a closed-loop simulation of this physical structure, but also a rich interface for plugging in any decision making algorithm, from linear feedback control to [Deep Deterministic Policy Gradient](https://spinningup.openai.com/en/latest/algorithms/ddpg.html) agents.
+It is built upon [Faram Gymnasium Environments](https://gymnasium.farama.org/), and, therefore, can be used for both, classical control simulation and [reinforcement learning](https://github.com/upb-lea/reinforcement_learning_course_materials) experiments. It allows you to construct a typical drive train with the usual building blocks, i.e., supply voltages, converters, electric motors and load models, and obtain not only a closed-loop simulation of this physical structure, but also a rich interface for plugging in any decision making algorithm, from linear feedback control to [Deep Deterministic Policy Gradient](https://spinningup.openai.com/en/latest/algorithms/ddpg.html) agents.
+In addition, an automated framework for classical control structures based on PI controllers is provided.
 
 ## Getting Started
 An easy way to get started with GEM is by playing around with the following interactive notebooks in Google Colaboratory. Most important features of GEM as well as application demonstrations are showcased, and give a kickstart for engineers in industry and academia.
 
 * [GEM cookbook](https://colab.research.google.com/github/upb-lea/gym-electric-motor/blob/master//examples/environment_features/GEM_cookbook.ipynb)
-* [Keras-rl2 example](https://colab.research.google.com/github/upb-lea/gym-electric-motor/blob/master/examples/reinforcement_learning_controllers/keras_rl2_dqn_disc_pmsm_example.ipynb)
-* [Stable-baselines3 example](https://colab.research.google.com/github/upb-lea/gym-electric-motor/blob/master/examples/reinforcement_learning_controllers/stable_baselines3_dqn_disc_pmsm_example.ipynb)
+* [Stable-baselines3 DDPG example](https://colab.research.google.com/github/upb-lea/gym-electric-motor/blob/master/examples/reinforcement_learning_controllers/stable_baselines3_ddpg_pmsm_dq_current_control.ipynb)
+* [Stable-baselines3 DQN example](https://colab.research.google.com/github/upb-lea/gym-electric-motor/blob/master/examples/reinforcement_learning_controllers/stable_baselines3_dqn_disc_pmsm_example.ipynb)
 * [MPC  example](https://colab.research.google.com/github/upb-lea/gym-electric-motor/blob/master/examples/model_predictive_controllers/pmsm_mpc_dq_current_control.ipynb)
 
 There is a list of [standalone example scripts](examples/) as well for minimalistic demonstrations.
@@ -38,11 +40,10 @@ if __name__ == '__main__':
     env = gem.make("Finite-CC-PMSM-v0")  # instantiate a discretely controlled PMSM
     env.reset()
     for _ in range(10000):
-        env.render()  # visualize environment
         (states, references), rewards, done, _ =\ 
         	env.step(env.action_space.sample())  # pick random control actions
         if done:
-            (states, references) = env.reset()
+            (states, references), _ = env.reset()
     env.close()
 ```
 
@@ -69,7 +70,7 @@ pip install -e .
 ## Building Blocks
 A GEM environment consists of following building blocks:
 - Physical structure:
-   - Supply voltage
+   - Voltage supply
    - Converter
    - Electric motor
    - Load model
@@ -79,8 +80,9 @@ A GEM environment consists of following building blocks:
 ![](docs/plots/SCML_Overview.png)
 
 Among various DC-motor models, the following AC motors - together with their power electronic counterparts - are available:
-- Permanent magnet synchronous motor (PMSM), 
+- Permanent magnet synchronous motor (PMSM) 
 - Synchronous reluctance motor (SynRM)
+- Externally exited synchronous motor (EESM)
 - Squirrel cage induction motor (SCIM)
 - Doubly-fed induction motor (DFIM)
 
@@ -107,13 +109,27 @@ A white paper for the general toolbox in the context of drive simulation and con
 A white paper for the utilization of this framework within reinforcement learning is available at [IEEE-Xplore](https://ieeexplore.ieee.org/document/9241851) (preprint: [arxiv.org/abs/1910.09434](https://arxiv.org/abs/1910.09434)). Please use the following BibTeX entry for citing it:
 ```
 @article{9241851,  
-    doi={10.1109/TNNLS.2020.3029573}
-    author={A. {Traue} and G. {Book} and W. {Kirchgässner} and O. {Wallscheid}},  
-    journal={IEEE Transactions on Neural Networks and Learning Systems},   
-    title={Toward a Reinforcement Learning Environment Toolbox for Intelligent Electric Motor Control},   
-    year={2020},  volume={},  number={},      
-    pages={1-10},  
-}
+  author={Traue, Arne and Book, Gerrit and Kirchgässner, Wilhelm and Wallscheid, Oliver},
+  journal={IEEE Transactions on Neural Networks and Learning Systems}, 
+  title={Toward a Reinforcement Learning Environment Toolbox for Intelligent Electric Motor Control}, 
+  year={2022},
+  volume={33},
+  number={3},
+  pages={919-928},
+  doi={10.1109/TNNLS.2020.3029573}}
+```
+
+A white paper for the classical control approaches of gym-electric-motor control is available at [IEEE-Xplore](https://ieeexplore.ieee.org/document/10239044). Please use the following BibTeX entry for citing it:
+```
+@INPROCEEDINGS{10239044,
+  author={Book, Felix and Traue, Arne and Schenke, Maximilian and Haucke-Korber, Barnabas and Wallscheid, Oliver},
+  booktitle={2023 IEEE International Electric Machines & Drives Conference (IEMDC)}, 
+  title={Gym-Electric-Motor (GEM) Control: An Automated Open-Source Controller Design Suite for Drives}, 
+  year={2023},
+  volume={},
+  number={},
+  pages={1-7},
+  doi={10.1109/IEMDC55163.2023.10239044}}
 ```
 
 ### Running Unit Tests with Pytest

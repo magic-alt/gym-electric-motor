@@ -28,3 +28,7 @@ examples/logs/
 .coverage
 
 /my_examples/
+.vscode/settings.json
+.vscode/launch.json
+plots/
+saved_plots/
